@@ -3,13 +3,9 @@ import ast
 import json
 import sys
 import re
-from pypher import Pypher
 from nltk.tokenize import RegexpTokenizer
 from nltk.stem.porter import PorterStemmer
-from gensim import corpora, models
-import gensim
 from py2neo import Graph, Node, Relationship, authenticate
-import copy
 
 authenticate("hobby-pbjiefemnffigbkeelplibal.dbs.graphenedb.com:24780", "api", "b.tdzWlcyhOmi7.hCtKdrqtkO4fMZue")
 g = Graph("https://hobby-pbjiefemnffigbkeelplibal.dbs.graphenedb.com:24780", bolt = False)
@@ -222,26 +218,24 @@ def addRetweet():
         """
         
         g.run(query, json=t_data)
-        
-def addJustStem():
-    for tweetid, tweetJson in tweets.items():
-        addStemToNeo4j(tweetJson)
-        
+
+# get and save in neo4j all stem word contained in the text of the tweet
 def addStemToNeo4j(tweetContent):
     
-    #remove urls
+    # Remove urls
     text = re.sub(r'\w+:\/{2}[\d\w-]+(\.[\d\w-]+)*(?:(?:\/[^\s/]*))*', '', tweetContent.get("text").translate(non_bmp_map))
     
-    # clean and tokenize text
+    # Clean text
     raw = " ".join(filter(lambda x:x[0]!='@', text.lower().split()))
     raw = " ".join(filter(lambda x:x[0]!='#', raw.split()))
-    
+
+    # Tokenize text
     tokens = tokenizer.tokenize(raw)
-    
-    # remove stop words from tokens
+
+    # Remove stop words from tokens
     stopped_tokens = [text for text in tokens if not text in en_stop]
 
-    # stem tokens
+    # Stem tokens
     stemmed_tokens = [p_stemmer.stem(text) for text in stopped_tokens]
 
     for stem in stemmed_tokens:

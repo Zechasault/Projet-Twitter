@@ -16,23 +16,31 @@ non_bmp_map = dict.fromkeys(range(0x10000, sys.maxunicode + 1), 0xfffd)
 # Get redis db
 r = redis.Redis(host='localhost', port=6379, db=0)
 
-# Authentication
+# Authentication to the twitter api
 auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
 auth.set_access_token(access_token, access_token_secret)
 api = tweepy.API(auth)
 
+# Get and save all users in relation with a tweet :
+#       - The Creator of the tweet
+#       - All users mentioned in the tweet
+#       - The user to whom the creator replied to
 def getUser(tweet):
-    
+
+    # Get user creator of the tweet
     userCreator = api.get_user(tweet.get("user").get("id"))._json
     r.rpush("users", json.dumps(userCreator))
-        
+
+    # Get all users mentioned in the tweet
     for userMention in tweet.get("entities").get("user_mentions"):
          user = api.get_user(userMention.get("id"))._json
          r.rpush("users", json.dumps(user))
-         
+
+    # The user to whom the creator replied to is exist
     if(tweet.get("in_reply_to_user_id_str") != None):     
         r.rpush("users", json.dumps(api.get_user(tweet.get("in_reply_to_user_id_str"))._json))
-       
+
+# Get and save all tweet and users in relation with it :
 def saveToRedis(tweet, replyed=False):
     if(tweet._json.get("lang") == "en"):
         if(replyed):
@@ -42,7 +50,7 @@ def saveToRedis(tweet, replyed=False):
         
         getUser(tweet._json)
         
-        #initialTweet = tweet.retweeted_status
+        # If it's a retweet, get and save the original tweet
         if(tweet._json.get("retweeted_status") != None):
             getUser(tweet.retweeted_status._json)
             print("retweet")
@@ -50,17 +58,16 @@ def saveToRedis(tweet, replyed=False):
         
         r.rpush("tweets", json.dumps(tweet._json))
 
+        # If the tweet it's a reply of a tweet, get all chain of replied tweet
         if(tweet._json.get("in_reply_to_status_id") != None):
             saveToRedis(api.get_status(tweet._json.get("in_reply_to_status_id")), replyed = True)
            
 
-#override tweepy.StreamListener to add logic to on_status
+# Stream to aspire tweet in real time
 class MyStreamListener(tweepy.StreamListener):
 
     def on_status(self, tweet):
         saveToRedis(tweet)
-        
-
 
 myStreamListener = MyStreamListener()
 myStream = tweepy.Stream(auth = api.auth, listener=myStreamListener)

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Community indirect networks</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css">
+    <style type="text/css">
+        body {
+            font: 10pt arial;
+        }
+
+        #mynetwork {
+            width: 100%;
+            height: 800px;
+            border: 1px solid lightgray;
+            background-color: #333333;
+        }
+
+        #loadingBar {
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            width: 100%;
+            height: 800px;
+            background-color: rgba(200, 200, 200, 0.8);
+            -webkit-transition: all 0.5s ease;
+            -moz-transition: all 0.5s ease;
+            -ms-transition: all 0.5s ease;
+            -o-transition: all 0.5s ease;
+            transition: all 0.5s ease;
+            opacity: 1;
+        }
+
+        #wrapper {
+            position: relative;
+            width: 100%;
+            height: 800px;
+        }
+
+        #text {
+            position: absolute;
+            top: 8px;
+            left: 530px;
+            width: 30px;
+            height: 50px;
+            margin: auto auto auto auto;
+            font-size: 22px;
+            color: #000000;
+        }
+
+        div.outerBorder {
+            position: relative;
+            top: 400px;
+            width: 600px;
+            height: 44px;
+            margin: auto auto auto auto;
+            border: 8px solid rgba(0, 0, 0, 0.1);
+            background: rgb(252, 252, 252); /* Old browsers */
+            background: -moz-linear-gradient(top, rgba(252, 252, 252, 1) 0%, rgba(237, 237, 237, 1) 100%); /* FF3.6+ */
+            background: -webkit-gradient(linear, left top, left bottom, color-stop(0%, rgba(252, 252, 252, 1)), color-stop(100%, rgba(237, 237, 237, 1))); /* Chrome,Safari4+ */
+            background: -webkit-linear-gradient(top, rgba(252, 252, 252, 1) 0%, rgba(237, 237, 237, 1) 100%); /* Chrome10+,Safari5.1+ */
+            background: -o-linear-gradient(top, rgba(252, 252, 252, 1) 0%, rgba(237, 237, 237, 1) 100%); /* Opera 11.10+ */
+            background: -ms-linear-gradient(top, rgba(252, 252, 252, 1) 0%, rgba(237, 237, 237, 1) 100%); /* IE10+ */
+            background: linear-gradient(to bottom, rgba(252, 252, 252, 1) 0%, rgba(237, 237, 237, 1) 100%); /* W3C */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#fcfcfc', endColorstr='#ededed', GradientType=0); /* IE6-9 */
+            border-radius: 72px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        #border {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 500px;
+            height: 23px;
+            margin: auto auto auto auto;
+            box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+
+        #bar {
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            width: 20px;
+            height: 20px;
+            margin: auto auto auto auto;
+            border-radius: 11px;
+            border: 2px solid rgba(30, 30, 30, 0.05);
+            background: rgb(0, 173, 246); /* Old browsers */
+            box-shadow: 2px 0px 4px rgba(0, 0, 0, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+<div id="mynetwork"></div>
+<div id="loadingBar">
+    <div class="outerBorder">
+        <div id="text">0%</div>
+        <div id="border">
+            <div id="bar"></div>
+        </div>
+    </div>
+</div>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js" charset="utf-8"></script>
+<script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js" charset="utf-8"></script>
+<script src="https://popotojs.com/release/1.2.rc4/js/popoto.min.js" charset="utf-8"></script>
+<script>
+    // popoto.logger.LEVEL = popoto.logger.LogLevels.INFO;
+    var linkoption = {
+        "DIRECT_RETWEET": {color: '#F60018', length: 15, type: "direct"},
+        "DIRECT_MENTION": {color: '#F60018', length: 15, type: "direct"},
+        "DIRECT_REPLY": {color: '#F60018', length: 15, type: "direct"},
+        "INDIRECT_HASHTAG": {color: '#00F605', length: 50, type: "indirect"},
+        "INDIRECT_STEM": {color: '#00F605', length: 50, type: "indirect"},
+        "INDIRECT_URL": {color: '#00F605', length: 50, type: "indirect"}
+    };
+    popoto.rest.CYPHER_URL = "https://hobby-pbjiefemnffigbkeelplibal.dbs.graphenedb.com:24780/db/data/transaction/commit";
+    popoto.rest.AUTHORIZATION = "Basic YXBpOmIudGR6V2xjeWhPbWk3LmhDdEtkcnF0a080Zk1adWU=";
+
+    popoto.rest.post(
+            {
+                "statements": [
+                    {
+                        "statement": "MATCH p=(u1)-[:INDIRECT_HASHTAG|:INDIRECT_STEM|:INDIRECT_URL]->(u2) RETURN p  ",
+                        "parameters": {},
+                        "resultDataContents": ["graph"]
+                    }
+                ]
+            })
+            .done(function (response) {
+
+                // Parse results and convert it to vis.js compatible data.
+                var graphData = parseGraphResultData(response);
+                var nodes = convertNodes(graphData.nodes);
+                var edges = convertEdges(graphData.edges);
+
+                var visData = {
+                    nodes: nodes,
+                    edges: edges
+                };
+
+                // create a network
+                var container = document.getElementById('mynetwork');
+
+                var options = {
+                    nodes: {
+                        borderWidth: 4,
+                        color: {
+                            border: '#222222',
+                            background: '#666666'
+                        },
+                        font: {color: '#eeeeee'},
+                        scaling: {
+
+                            min: 5,
+                            max: 50,
+                            label: {
+                                min: 5,
+                                max: 20,
+                            }
+                        }
+                    },
+                    edges: {
+                        smooth: false,
+                        color: 'lightgray'
+                    },
+                    physics: {
+                        enabled: true,
+                        solver: "repulsion",
+                        repulsion: {
+                            centralGravity: 0.2,
+                            springLength: 200,
+                            springConstant: 0.05,
+                            nodeDistance: 150,
+                            damping: 0.09
+                        },
+                        stabilization: {
+                            enabled: true,
+                            iterations: 100
+                        }
+                    },
+                    layout: {
+                        randomSeed: 1,
+                        improvedLayout: false
+                    }
+                };
+                network = new vis.Network(container, visData, options);
+
+//                network.on("selectNode", function (params) {
+//                    if (params.nodes.length == 1) {
+//                        if (network.isCluster(params.nodes[0]) == true) {
+//                            network.openCluster(params.nodes[0]);
+//                        }
+//                    }
+//                });
+//
+//                var clusterOptionsByData = {
+//                    processProperties: function (clusterOptions, childNodes) {
+//                        clusterOptions.label = childNodes.length + "";
+//                        return clusterOptions;
+//                    },
+//                    clusterNodeProperties: {borderWidth: 3, shape: 'circle', font: {size: 30}}
+//                };
+//                network.clusterByHubsize(undefined, clusterOptionsByData);
+
+                network.on("stabilizationProgress", function (params) {
+                    var maxWidth = 496;
+                    var minWidth = 20;
+                    var widthFactor = params.iterations / params.total;
+                    var width = Math.max(minWidth, maxWidth * widthFactor);
+
+                    document.getElementById('bar').style.width = width + 'px';
+                    document.getElementById('text').innerHTML = Math.round(widthFactor * 100) + '%';
+                });
+                network.once("stabilizationIterationsDone", function () {
+                    document.getElementById('text').innerHTML = '100%';
+                    document.getElementById('bar').style.width = '496px';
+                    document.getElementById('loadingBar').style.opacity = 0;
+                    // really clean the dom element
+                    setTimeout(function () {
+                        document.getElementById('loadingBar').style.display = 'none';
+                    }, 500);
+                });
+
+
+            })
+            .fail(function (xhr, textStatus, errorThrown) {
+                console.error(xhr, textStatus, errorThrown);
+            });
+
+
+    function parseGraphResultData(data) {
+        var nodes = {}, edges = {};
+        data.results[0].data.forEach(function (row) {
+            row.graph.nodes.forEach(function (n) {
+                if (!nodes.hasOwnProperty(n.id)) {
+                    nodes[n.id] = n;
+                }
+            });
+            row.graph.relationships.forEach(function (r) {
+
+
+                var edgeType = linkoption[r.type].type;
+                var edg = r.startNode > r.endNode ? r.startNode + "-" + r.endNode : r.endNode + "-" + r.startNode;
+                var edgeID = edgeType + edg;
+
+                if (!edges.hasOwnProperty(edgeID)) {
+                    edges[edgeID] = r;
+                    edges[edgeID].value = 1;
+                } else {
+                    edges[edgeID].value++;
+                }
+            });
+        });
+        var nodesArray = [], edgesArray = [];
+        for (var p in nodes) {
+            if (nodes.hasOwnProperty(p)) {
+                nodesArray.push(nodes[p]);
+            }
+        }
+        for (var q in edges) {
+            if (edges.hasOwnProperty(q)) {
+                edgesArray.push(edges[q])
+            }
+        }
+        return {nodes: nodesArray, edges: edgesArray};
+    }
+
+
+    function convertNodes(nodes) {
+        var convertedNodes = [];
+        nodes.forEach(function (node) {
+            var nodeLabel = node.labels[0];
+            var displayedLabel = nodeLabel + ("\n" + node.properties["name"]).substr(0, 20);
+            convertedNodes.push({
+                id: node.id,
+                label: node.properties.name,
+                group: nodeLabel,
+                shape: 'circularImage',
+                image: node.properties.profile_image_url,
+                value: node.properties.followers_count
+
+            })
+        });
+        return convertedNodes;
+    }
+    function convertEdges(edges) {
+        var convertedEdges = [];
+        edges.forEach(function (edge) {
+            convertedEdges.push({
+                from: edge.startNode,
+                to: edge.endNode,
+                color: {color: linkoption[edge.type].color},
+                length: linkoption[edge.type].length,
+                //value: edge.value
+                //label: edge.type
+            })
+        });
+        return convertedEdges;
+    }
+
+</script>
+</body>
+</html>

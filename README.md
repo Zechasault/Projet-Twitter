@@ -1,3 +1,9 @@
+
+***
+<p style=" font-size: 20px; color:red"> &#9888; La base de données n'est plus disponible</p>
+
+***
+
 # INFO 901 Twitter : Détection de communautés
 
 ## Introduction

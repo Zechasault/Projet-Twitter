@@ -1,6 +1,6 @@
 
 ***
-<p style=" font-size: 20px; color:red"> &#9888; La base de données n'est plus disponible</p>
+<p> &#9888; La base de données utilisé dans les examples est désactivé</p>
 
 ***
 

@@ -1,6 +1,6 @@
 
 ***
-<p> &#9888; La base de données utilisé dans les examples est désactivé</p>
+<p> &#9888; La base de données utilisée dans les examples est désactivée</p>
 
 ***
 
